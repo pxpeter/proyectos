@@ -295,9 +295,9 @@ if (SPEECH_METHOD === 'vosk') {
   vosk.setLogLevel(-1);
   // MODELS: https://alphacephei.com/vosk/models
   recs = {
-    // 'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
+     'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
     // 'fr': new vosk.Recognizer({model: new vosk.Model('vosk_models/fr'), sampleRate: 48000}),
-    'es': new vosk.Recognizer({model: new vosk.Model('vosk_models/es'), sampleRate: 48000}),
+    // 'es': new vosk.Recognizer({model: new vosk.Model('vosk_models/es'), sampleRate: 48000}),
   }
   // download new models if you need
   // dev reference: https://github.com/alphacep/vosk-api/blob/master/nodejs/index.js
