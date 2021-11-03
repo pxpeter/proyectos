@@ -1,5 +1,5 @@
 //////////////////////////////////////////
-//////////////// LOGGING /////////////////
+////////////////  LOGIN  /////////////////
 //////////////////////////////////////////
 function getCurrentDateString() {
     return (new Date()).toISOString() + ' ::';
@@ -10,7 +10,6 @@ console.log = function () {
     __originalLog.apply(console.log, [getCurrentDateString()].concat(args));
 };
 //////////////////////////////////////////
-//////////////////////////////////////////
 
 const fs = require('fs');
 const util = require('util');
@@ -18,7 +17,7 @@ const path = require('path');
 const { Readable } = require('stream');
 
 //////////////////////////////////////////
-///////////////// VARIA //////////////////
+/////////////// VARIABLES ////////////////
 //////////////////////////////////////////
 
 function necessary_dirs() {
@@ -47,19 +46,19 @@ async function convert_audio(input) {
     }
 }
 //////////////////////////////////////////
-//////////////////////////////////////////
+
 //////////////////////////////////////////
 
 
 //////////////////////////////////////////
-//////////////// CONFIG //////////////////
+///////////// CONFIGURACION //////////////
 //////////////////////////////////////////
 
 const SETTINGS_FILE = 'settings.json';
 
 let DISCORD_TOK = null;
 let WITAI_TOK = null; 
-let SPEECH_METHOD = 'vosk'; // witai, google, vosk
+let SPEECH_METHOD = 'vosk'; // witai, google, vosk (Libreria Principal de Reconocimiento de Voz)
 
 function loadConfig() {
     if (fs.existsSync(SETTINGS_FILE)) {
@@ -162,6 +161,10 @@ discordClient.on('ready', () => {
 })
 discordClient.login(DISCORD_TOK)
 
+
+//Lista de Comandos
+
+
 const PREFIX = '*';
 const _CMD_HELP        = PREFIX + 'help';
 const _CMD_JOIN        = PREFIX + 'join';
@@ -175,16 +178,16 @@ const guildMap = new Map();
 
 discordClient.on('message', async (msg) => {
     try {
-        if (!('guild' in msg) || !msg.guild) return; // prevent private messages to bot
+        if (!('guild' in msg) || !msg.guild) return; // Previene mensajes privados al bot
         const mapKey = msg.guild.id;
         if (msg.content.trim().toLowerCase() == _CMD_JOIN) {
             if (!msg.member.voice.channelID) {
-                msg.reply('Error: please join a voice channel first.')
+                msg.reply('Error: Por favor unase a un canal de voz primero.') // Mensaje de error por falta de conexion a un canal de voz
             } else {
                 if (!guildMap.has(mapKey))
                     await connect(msg, mapKey)
                 else
-                    msg.reply('Already connected')
+                    msg.reply('El bot ya esta activado') //Mensaje de conexion ya realizada
             }
         } else if (msg.content.trim().toLowerCase() == _CMD_LEAVE) {
             if (guildMap.has(mapKey)) {
@@ -192,9 +195,9 @@ discordClient.on('message', async (msg) => {
                 if (val.voice_Channel) val.voice_Channel.leave()
                 if (val.voice_Connection) val.voice_Connection.disconnect()
                 guildMap.delete(mapKey)
-                msg.reply("Disconnected.")
+                msg.reply("Desconectado.") //Mensaje de salida del bot
             } else {
-                msg.reply("Cannot leave because not connected.")
+                msg.reply("No se puede desconectar el bot, ya que no se encontro activo en primer lugar.")
             }
         } else if (msg.content.trim().toLowerCase() == _CMD_HELP) {
             msg.reply(getHelpString());
@@ -292,9 +295,9 @@ if (SPEECH_METHOD === 'vosk') {
   vosk.setLogLevel(-1);
   // MODELS: https://alphacephei.com/vosk/models
   recs = {
-    'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
+    // 'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
     // 'fr': new vosk.Recognizer({model: new vosk.Model('vosk_models/fr'), sampleRate: 48000}),
-    // 'es': new vosk.Recognizer({model: new vosk.Model('vosk_models/es'), sampleRate: 48000}),
+    'es': new vosk.Recognizer({model: new vosk.Model('vosk_models/es'), sampleRate: 48000}),
   }
   // download new models if you need
   // dev reference: https://github.com/alphacep/vosk-api/blob/master/nodejs/index.js
@@ -351,7 +354,7 @@ function process_commands_query(txt, mapKey, user) {
 
 
 //////////////////////////////////////////
-//////////////// SPEECH //////////////////
+//////////////// HABLA ///////////////////
 //////////////////////////////////////////
 async function transcribe(buffer, mapKey) {
   if (SPEECH_METHOD === 'witai') {
