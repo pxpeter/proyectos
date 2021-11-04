@@ -334,7 +334,11 @@ function speak_impl(voice_Connection, mapKey) {
 function process_commands_query(txt, mapKey, user) {
     if (txt && txt.length) {
         let val = guildMap.get(mapKey);
-        val.text_Channel.send(user.username + ': ' + txt)
+        val.text_Channel.send(user.username + ':: ' + txt)
+        if(txt=='saludo')
+        {
+          msg.reply('Error: no digas saludo esta prohibido')
+        }
     }
 }
 
