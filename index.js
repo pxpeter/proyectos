@@ -35,7 +35,7 @@ function sleep(ms) {
 
 async function convert_audio(input) {
     try {
-        // stereo to mono channel
+        // convirtiendo de audio estereo a mono
         const data = new Int16Array(input)
         const ndata = data.filter((el, idx) => idx % 2);
         return Buffer.from(ndata);
@@ -45,8 +45,6 @@ async function convert_audio(input) {
         throw e;
     }
 }
-//////////////////////////////////////////
-
 //////////////////////////////////////////
 
 
@@ -72,13 +70,13 @@ function loadConfig() {
     SPEECH_METHOD = process.env.SPEECH_METHOD || SPEECH_METHOD;
 
     if (!['witai', 'google', 'vosk'].includes(SPEECH_METHOD))
-        throw 'invalid or missing SPEECH_METHOD'
+        throw 'invalido o faltante SPEECH_METHOD'
     if (!DISCORD_TOK)
-        throw 'invalid or missing DISCORD_TOK'
+        throw 'invalido o faltante DISCORD_TOK'
     if (SPEECH_METHOD === 'witai' && !WITAI_TOK)
-        throw 'invalid or missing WITAI_TOK'
+        throw 'invalido o faltante WITAI_TOK'
     if (SPEECH_METHOD === 'google' && !fs.existsSync('./gspeech_key.json'))
-        throw 'missing gspeech_key.json'
+        throw 'faltante gspeech_key.json'
     
 }
 loadConfig()
@@ -162,15 +160,14 @@ discordClient.on('ready', () => {
 discordClient.login(DISCORD_TOK)
 
 
-//Lista de Comandos
+///////////////Lista de Comandos///////////////
 
 
 const PREFIX = '*';
-const _CMD_HELP        = PREFIX + 'help';
-const _CMD_JOIN        = PREFIX + 'join';
-const _CMD_LEAVE       = PREFIX + 'leave';
-const _CMD_DEBUG       = PREFIX + 'debug';
-const _CMD_TEST        = PREFIX + 'hello';
+const _CMD_HELP        = PREFIX + 'ayuda';
+const _CMD_JOIN        = PREFIX + 'unirse';
+const _CMD_LEAVE       = PREFIX + 'salir';
+const _CMD_TEST        = PREFIX + 'hola';
 const _CMD_LANG        = PREFIX + 'lang';
 
 const guildMap = new Map();
@@ -187,7 +184,7 @@ discordClient.on('message', async (msg) => {
                 if (!guildMap.has(mapKey))
                     await connect(msg, mapKey)
                 else
-                    msg.reply('El bot ya esta activado') //Mensaje de conexion ya realizada
+                    msg.reply('El bot de Voz ya esta activado') //Mensaje de conexion ya realizada
             }
         } else if (msg.content.trim().toLowerCase() == _CMD_LEAVE) {
             if (guildMap.has(mapKey)) {
@@ -197,33 +194,25 @@ discordClient.on('message', async (msg) => {
                 guildMap.delete(mapKey)
                 msg.reply("Desconectado.") //Mensaje de salida del bot
             } else {
-                msg.reply("No se puede desconectar el bot, ya que no se encontro activo en primer lugar.")
+                msg.reply("El bot de Voz no se encuentra activo.")
             }
         } else if (msg.content.trim().toLowerCase() == _CMD_HELP) {
             msg.reply(getHelpString());
         }
-        else if (msg.content.trim().toLowerCase() == _CMD_DEBUG) {
-            console.log('toggling debug mode')
-            let val = guildMap.get(mapKey);
-            if (val.debug)
-                val.debug = false;
-            else
-                val.debug = true;
-        }
         else if (msg.content.trim().toLowerCase() == _CMD_TEST) {
-            msg.reply('hello back =)')
+            msg.reply('prueba exitosa, hola mundo')
         }
         else if (msg.content.split('\n')[0].split(' ')[0].trim().toLowerCase() == _CMD_LANG) {
             if (SPEECH_METHOD === 'witai') {
               const lang = msg.content.replace(_CMD_LANG, '').trim().toLowerCase()
               listWitAIApps(data => {
                 if (!data.length)
-                  return msg.reply('no apps found! :(')
+                  return msg.reply('No se encontro la aplicacion')
                 for (const x of data) {
                   updateWitAIAppLang(x.id, lang, data => {
                     if ('success' in data)
-                      msg.reply('succes!')
-                    else if ('error' in data && data.error !== 'Access token does not match')
+                      msg.reply('Exito')
+                    else if ('error' in data && data.error !== 'Token de acceso no concuerda')
                       msg.reply('Error: ' + data.error)
                   })
                 }
@@ -233,20 +222,20 @@ discordClient.on('message', async (msg) => {
               const lang = msg.content.replace(_CMD_LANG, '').trim().toLowerCase()
               val.selected_lang = lang;
             } else {
-              msg.reply('Error: this feature is only for Google')
+              msg.reply('Error: esta funcion es solo para Google')
             }
         }
     } catch (e) {
         console.log('discordClient message: ' + e)
-        msg.reply('Error#180: Something went wrong, try again or contact the developers if this keeps happening.');
+        msg.reply('Error: Algo salio mal, intenta de nuevo si este error sigue ocurriendo.');
     }
 })
 
 function getHelpString() {
     let out = '**COMMANDS:**\n'
         out += '```'
-        out += PREFIX + 'join\n';
-        out += PREFIX + 'leave\n';
+        out += PREFIX + 'unirse\n';
+        out += PREFIX + 'salir\n';
         out += PREFIX + 'lang <code>\n';
         out += '```'
     return out;
@@ -264,9 +253,9 @@ class Silence extends Readable {
 async function connect(msg, mapKey) {
     try {
         let voice_Channel = await discordClient.channels.fetch(msg.member.voice.channelID);
-        if (!voice_Channel) return msg.reply("Error: The voice channel does not exist!");
+        if (!voice_Channel) return msg.reply("Error: El canal de voz no existe");
         let text_Channel = await discordClient.channels.fetch(msg.channel.id);
-        if (!text_Channel) return msg.reply("Error: The text channel does not exist!");
+        if (!text_Channel) return msg.reply("Error: El canal de texto no existe");
         let voice_Connection = await voice_Channel.join();
         voice_Connection.play(new Silence(), { type: 'opus' });
         guildMap.set(mapKey, {
@@ -284,7 +273,7 @@ async function connect(msg, mapKey) {
         msg.reply('connected!')
     } catch (e) {
         console.log('connect: ' + e)
-        msg.reply('Error: unable to join your voice channel.');
+        msg.reply('Error: incapaz de conectarse a tu canal de voz.');
         throw e;
     }
 }
@@ -293,14 +282,12 @@ const vosk = require('vosk');
 let recs = {}
 if (SPEECH_METHOD === 'vosk') {
   vosk.setLogLevel(-1);
-  // MODELS: https://alphacephei.com/vosk/models
+  // MODELOS DE VOZ: https://alphacephei.com/vosk/models
   recs = {
-     'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
+    'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
     // 'fr': new vosk.Recognizer({model: new vosk.Model('vosk_models/fr'), sampleRate: 48000}),
     // 'es': new vosk.Recognizer({model: new vosk.Model('vosk_models/es'), sampleRate: 48000}),
   }
-  // download new models if you need
-  // dev reference: https://github.com/alphacep/vosk-api/blob/master/nodejs/index.js
 }
 
 
@@ -311,6 +298,7 @@ function speak_impl(voice_Connection, mapKey) {
         }
         console.log(`I'm listening to ${user.username}`)
         // this creates a 16-bit signed PCM, stereo 48KHz stream
+        // Creacion de voz a 16-bits, 48KHz estereo
         const audioStream = voice_Connection.receiver.createStream(user, { mode: 'pcm' })
         audioStream.on('error',  (e) => { 
             console.log('audioStream: ' + e)
@@ -325,7 +313,7 @@ function speak_impl(voice_Connection, mapKey) {
             console.log("duration: " + duration)
 
             if (SPEECH_METHOD === 'witai' || SPEECH_METHOD === 'google') {
-            if (duration < 1.0 || duration > 19) { // 20 seconds max dur
+            if (duration < 1.0 || duration > 19) { // 20 segundos maximos de duracion
                 console.log("TOO SHORT / TOO LONG; SKPPING")
                 return;
             }
@@ -339,8 +327,6 @@ function speak_impl(voice_Connection, mapKey) {
             } catch (e) {
                 console.log('tmpraw rename: ' + e)
             }
-
-
         })
     })
 }
@@ -356,6 +342,7 @@ function process_commands_query(txt, mapKey, user) {
 //////////////////////////////////////////
 //////////////// HABLA ///////////////////
 //////////////////////////////////////////
+
 async function transcribe(buffer, mapKey) {
   if (SPEECH_METHOD === 'witai') {
       return transcribe_witai(buffer)
@@ -374,8 +361,8 @@ async function transcribe(buffer, mapKey) {
 let witAI_lastcallTS = null;
 const witClient = require('node-witai-speech');
 async function transcribe_witai(buffer) {
-    try {
-        // ensure we do not send more than one request per second
+    try {      
+        // Asegura no mandar mas de una peticion por segundo
         if (witAI_lastcallTS != null) {
             let now = Math.floor(new Date());    
             while (now - witAI_lastcallTS < 1000) {
@@ -387,7 +374,6 @@ async function transcribe_witai(buffer) {
     } catch (e) {
         console.log('transcribe_witai 837:' + e)
     }
-
     try {
         console.log('transcribe_witai')
         const extractSpeechIntent = util.promisify(witClient.extractSpeechIntent);
@@ -405,7 +391,7 @@ async function transcribe_witai(buffer) {
     } catch (e) { console.log('transcribe_witai 851:' + e); console.log(e) }
 }
 
-// Google Speech API
+// Google Speech API (API de habla de Google)
 // https://cloud.google.com/docs/authentication/production
 const gspeech = require('@google-cloud/speech');
 const gspeechclient = new gspeech.SpeechClient({
@@ -429,14 +415,12 @@ async function transcribe_gspeech(buffer) {
         audio: audio,
         config: config,
       };
-
       const [response] = await gspeechclient.recognize(request);
       const transcription = response.results
         .map(result => result.alternatives[0].transcript)
         .join('\n');
       console.log(`gspeech: ${transcription}`);
       return transcription;
-
   } catch (e) { console.log('transcribe_gspeech 368:' + e) }
 }
 
