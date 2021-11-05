@@ -1,33 +1,27 @@
 {
-  "name": "ears",
+  "name": "Chintrolo",
   "version": "1.0.0",
-  "description": "",
+  "description": "Bot que censura malas palabras.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js"
   },
-  "engines": {
-    "node": ">=12.x"
-  },
-  "author": "Ilja Nevolin",
+  "author": "Pedro Garcia, Marcos Martínez, Edgar Villarreal",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/healzer/DiscordEarsBot.git"
+    "url": "git+https://github.com/pxpeter/proyectos"
   },
   "bugs": {
-    "url": "https://github.com/healzer/DiscordEarsBot/issues"
+    "url": "https://github.com/pxpeter/proyectos/issues"
   },
-  "homepage": "https://github.com/healzer/DiscordEarsBot#readme",
+  "homepage": "https://github.com/pxpeter/proyectos",
   "license": "ISC",
   "dependencies": {
-    "@discordjs/opus": "^0.4.0",
-    "@google-cloud/speech": "^4.2.0",
-    "@mapbox/node-pre-gyp": "^1.0.1",
-    "discord.js": "^12.5.1",
-    "node-witai-speech": "^1.0.2",
+    "@discordjs/opus": "0.4.0",
+    "discord.js": "12.5.1",
     "request": "^2.88.2",
     "underscore": "^1.12.0",
-    "vosk": "^0.3.30"
+    "vosk": "^0.3.32"
   }
 }
