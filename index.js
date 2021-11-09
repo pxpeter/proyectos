@@ -65,7 +65,7 @@ discordClient.on('message', async (msg) => {
                 let voice_Channel = msg.member.voice.channel;
                 await connect(msg, voice_Channel);
             }
-        } else if (msg.content === '/leave') {
+        } else if (msg.content == '/leave') {
           if (voice_Channel){
             let voice_Channel = msg.member.voice.channel;
             voice_Channel.leave();
