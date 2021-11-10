@@ -22,9 +22,52 @@ const fs = require('fs');
 const util = require('util');
 const path = require('path');
 const { Readable } = require('stream');
-const config = require('./config.json');
-const Discord = require('discord.js');
+//const config = require('./config.json');
+//const Discord = require('discord.js');
 const vosk = require('vosk');
+
+
+
+
+const SETTINGS_FILE = 'settings.json';
+
+let DISCORD_TOK = null;
+let SPEECH_METHOD = 'vosk'; // witai, google, vosk (Libreria Principal de Reconocimiento de Voz)
+
+function loadConfig() {
+    if (fs.existsSync(SETTINGS_FILE)) {
+        const CFG_DATA = JSON.parse( fs.readFileSync(SETTINGS_FILE, 'utf8') );
+        DISCORD_TOK = CFG_DATA.DISCORD_TOK;
+        SPEECH_METHOD = CFG_DATA.SPEECH_METHOD;
+    }
+    DISCORD_TOK = process.env.DISCORD_TOK || DISCORD_TOK;
+    SPEECH_METHOD = process.env.SPEECH_METHOD || SPEECH_METHOD;
+
+    if (!['witai', 'google', 'vosk'].includes(SPEECH_METHOD))
+        throw 'invalido o faltante SPEECH_METHOD'
+    if (!DISCORD_TOK)
+        throw 'invalido o faltante DISCORD_TOK'
+}
+loadConfig()
+
+
+
+const Discord = require('discord.js')
+const DISCORD_MSG_LIMIT = 2000;
+const discordClient = new Discord.Client()
+if (process.env.DEBUG)
+    discordClient.on('debug', console.debug);
+discordClient.on('ready', () => {
+    console.log(`Logged in as ${discordClient.user.tag}!`)
+})
+discordClient.login(DISCORD_TOK)
+
+
+
+
+
+
+
 
 
 //----Funcion que busca el directorio de datos, si no lo encuentra lo crea
