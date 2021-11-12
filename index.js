@@ -1,63 +1,27 @@
-//Proyecto Modular Sensurador de Palabras Discord
-//Integrantes:  García Pérez Pedro
-//              Martínez Navarro Marcos Omar
-//              Villareal Padilla Edgar Alejandro
+//Proyecto Modular: Filtrador de Lenguaje en Discord (FOLIO: 103/2021)
 
+//Profesor: Quintanilla Moreno Francisco Javier         2104466
+
+//Integrantes:  García Pérez Pedro                      214290982
+//              Martínez Navarro Marcos Omar            207541732
+//              Villarreal Padilla Edgar Alejandro      207579454
+    
 
 //////////////////////LOGIN//////////////////////
 
-
-
+require('dotenv').config();
 const fs = require('fs');
 const { Readable } = require('stream');
 //const config = require('./config.json');
-const path = require('path');
 const Discord = require('discord.js');
 const vosk = require('vosk');
 
-
-const SETTINGS_FILE = 'settings.json';
-
-let DISCORD_TOK = null;
-let SPEECH_METHOD = 'vosk'; // witai, google, vosk (Libreria Principal de Reconocimiento de Voz)
-DISCORD_TOK = process.env.DISCORD_TOK || DISCORD_TOK;
-
-function loadConfig() {
-    if (fs.existsSync(SETTINGS_FILE)) {
-        const CFG_DATA = JSON.parse( fs.readFileSync(SETTINGS_FILE, 'utf8') );
-        DISCORD_TOK = CFG_DATA.DISCORD_TOK;
-        WITAI_TOK = CFG_DATA.WITAI_TOK;
-        SPEECH_METHOD = CFG_DATA.SPEECH_METHOD;
-    }
-    SPEECH_METHOD = process.env.SPEECH_METHOD || SPEECH_METHOD;
-
-    if (!['witai', 'google', 'vosk'].includes(SPEECH_METHOD))
-        throw 'invalido o faltante SPEECH_METHOD'
-    if (!DISCORD_TOK)
-        throw 'invalido o faltante DISCORD_TOK'
-}
-loadConfig()
-
-
-
-
-
-
-
-
-
-
 const bot = new Discord.Client();
-const DISCORD_MSG_LIMIT = 2000;
-const token = config.token;
+//const token = config.token;
+
 const SILENCE_FRAME = Buffer.from([0xF8, 0xFF, 0xFE]);
 const idioma = "es";
 let majaderias = [];
-
-
-
-
-
 
 class Silence extends Readable {
     _read() {
@@ -67,15 +31,16 @@ class Silence extends Readable {
 }
 
 function cargarMajaderias() {
-    majaderias = fs.readFileSync('majaderias3.txt', 'utf8').toString().split('\r\n');
+    majaderias = fs.readFileSync('majaderias.txt', 'utf8').toString().split('\r\n');
 }
 
 let recs = {
-    //'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
+    'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
     'es': new vosk.Recognizer({model: new vosk.Model('vosk_models/es'), sampleRate: 48000}),
 }
 
-bot.login(token);
+//bot.login(token);
+bot.login(process.env.DISCORD_TOK);
 
 bot.on('ready', () => {
     cargarMajaderias();
@@ -92,12 +57,15 @@ bot.on('message', async (mensaje) => {
         // Previene mensajes privados al bot
         if (!('guild' in mensaje) || !mensaje.guild) return;
         // Comando para activar el bot
-        if (mensajeContenido === '-unirse') {
-            if (usuarioCanalVoz) conexionVoz = await conectar(usuarioCanalVoz);
+        if (mensajeContenido === '-iniciar') {
+            if (usuarioCanalVoz) {
+                conexionVoz = await conectar(usuarioCanalVoz);
+                if (conexionVoz) mensaje.reply(`${bot.user.tag} se ha conectado a ${usuarioCanalVoz}`);
+            }
             else mensaje.reply('Error: Por favor unase a un canal de voz primero.');
         }
         // Comando para desactivar el bot
-        else if (mensajeContenido === '-salir') {
+        else if (mensajeContenido === '-terminar') {
             if (!botCanalVoz) mensaje.reply('Error: Nada por hacer.');
             if (botCanalVoz) {
                 desconectar(botCanalVoz);
@@ -208,3 +176,4 @@ function censurar(texto, miembro, conexionVoz) {
         }
     }
 }
+
