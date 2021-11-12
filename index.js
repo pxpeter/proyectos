@@ -1,46 +1,33 @@
-//Proyecto Modular Filtrador de Lenguaje en Discord
+//Proyecto Modular Sensurador de Palabras Discord
 //Integrantes:  García Pérez Pedro
+//              Martínez Navarro Marcos Omar
 //              Villareal Padilla Edgar Alejandro
-//              Galager Marcos Alejandro
 
 
 //////////////////////LOGIN//////////////////////
 
-function getCurrentDateString() {
-    return (new Date()).toISOString() + ' ::';
-};
 
-__originalLog = console.log;
-
-/*
-console.log = function () {
-    var args = [].slice.call(arguments);
-    __originalLog.apply(console.log, [getCurrentDateString()].concat(args));
-};*/
 
 const fs = require('fs');
-const util = require('util');
-const path = require('path');
 const { Readable } = require('stream');
 //const config = require('./config.json');
-//const Discord = require('discord.js');
+const Discord = require('discord.js');
 const vosk = require('vosk');
-
-
 
 
 const SETTINGS_FILE = 'settings.json';
 
 let DISCORD_TOK = null;
 let SPEECH_METHOD = 'vosk'; // witai, google, vosk (Libreria Principal de Reconocimiento de Voz)
+DISCORD_TOK = process.env.DISCORD_TOK || DISCORD_TOK;
 
 function loadConfig() {
     if (fs.existsSync(SETTINGS_FILE)) {
         const CFG_DATA = JSON.parse( fs.readFileSync(SETTINGS_FILE, 'utf8') );
         DISCORD_TOK = CFG_DATA.DISCORD_TOK;
+        WITAI_TOK = CFG_DATA.WITAI_TOK;
         SPEECH_METHOD = CFG_DATA.SPEECH_METHOD;
     }
-    DISCORD_TOK = process.env.DISCORD_TOK || DISCORD_TOK;
     SPEECH_METHOD = process.env.SPEECH_METHOD || SPEECH_METHOD;
 
     if (!['witai', 'google', 'vosk'].includes(SPEECH_METHOD))
@@ -52,160 +39,127 @@ loadConfig()
 
 
 
-const Discord = require('discord.js')
-const DISCORD_MSG_LIMIT = 2000;
-const discordClient = new Discord.Client()
-if (process.env.DEBUG)
-    discordClient.on('debug', console.debug);
-discordClient.on('ready', () => {
-    console.log(`Logged in as ${discordClient.user.tag}!`)
-})
-discordClient.login(DISCORD_TOK)
 
 
 
 
 
 
-
-
-
-//----Funcion que busca el directorio de datos, si no lo encuentra lo crea
-function necessary_dirs() {
-    if (!fs.existsSync('./data/')){
-        fs.mkdirSync('./data/');
-    }
-}
-necessary_dirs()
-
-/* //Funcion nunca usada
-function sleep(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}*/
-
-//----Funcion de conversion del audio
-async function convert_audio(input) {
-    try {
-        // convirtiendo de audio estereo a mono
-        const data = new Int16Array(input)
-        const ndata = data.filter((el, idx) => idx % 2);
-        return Buffer.from(ndata);
-    } catch (e) {
-        console.log(e)
-        // mensaje a consola para pruebas
-        console.log('convertir_audio: ' + e)
-        throw e;
-    }
-}
-
-const DISCORD_MSG_LIMIT = 2000;
-let token = config.token;
 
 const bot = new Discord.Client();
-
-bot.on('listo', () => {
-    console.log(`Logeado como ${bot.user.tag}!`);
-});
-bot.login(token);
-
-const guildMap = new Map();
-const voice_Connection = {};
+const DISCORD_MSG_LIMIT = 2000;
+const token = config.token;
+const SILENCE_FRAME = Buffer.from([0xF8, 0xFF, 0xFE]);
+const idioma = "es";
+let majaderias = [];
 
 
-//------------------------FUNCION MOVIDA PARA DECLARARSE ANTES DE USARSE
-async function desconectar(botCanalVoz) {
-    if (botCanalVoz) botCanalVoz.leave();
+
+
+
+
+class Silence extends Readable {
+    _read() {
+      this.push(SILENCE_FRAME);
+      this.destroy();
+    }
 }
 
+function cargarMajaderias() {
+    majaderias = fs.readFileSync('majaderias3.txt', 'utf8').toString().split('\r\n');
+}
 
-bot.on('mensaje', async (mensaje) => {
+let recs = {
+    //'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
+    'es': new vosk.Recognizer({model: new vosk.Model('vosk_models/es'), sampleRate: 48000}),
+}
+
+bot.login(token);
+
+bot.on('ready', () => {
+    cargarMajaderias();
+    console.log(`Logged in as ${bot.user.tag}!`);
+});
+
+bot.on('message', async (mensaje) => {
     try {
         const mensajeContenido = mensaje.content;
-        //const usuarioIdCanal = mensaje.member.voice.channelID;
         const usuarioCanalVoz = mensaje.member.voice.channel;
         const botCanalVoz = mensaje.guild.me.voice.channel;
-        //console.log(usuarioCanalVoz.members);
+        let conexionVoz = {};
+
         // Previene mensajes privados al bot
-        if (!('guild' in mensaje) || !mensaje.guild) return; 
-
-        //----Condiciones de los comandos del bot----//
-
-        if (mensajeContenido === '-unirse') {
-            //----Revisa si el usuario esta conectado a un canal de voz antes de unir el bot a un chat-
+        if (!('guild' in mensaje) || !mensaje.guild) return;
+        // Comando para activar el bot
+        if (mensajeContenido === '-join') {
             if (usuarioCanalVoz) conexionVoz = await conectar(usuarioCanalVoz);
             else mensaje.reply('Error: Por favor unase a un canal de voz primero.');
         }
-        else if (mensajeContenido === '-salir') {
-            //----Revisa si el usuario a salido del canal de voz antes de desconectar el bot.
+        // Comando para desactivar el bot
+        else if (mensajeContenido === '-leave') {
             if (!botCanalVoz) mensaje.reply('Error: Nada por hacer.');
-            //if (usuarioCanalVoz) usuarioCanalVoz.leave();
             if (botCanalVoz) {
                 desconectar(botCanalVoz);
                 mensaje.reply("Desconectado.");
             }
         }
-        //else mensaje.reply('Error: Nada por hacer.'); // esta linea da error
     } catch (e) {
-        //----Mensajes de error, por mal funcionamiento, o condiciones aleatorias de error
         console.error('Error en el bot: ' + e)
         mensaje.reply('Algo no anda bien, intentalo nuevamente.');
-        process.exit();
     }
 });
 
-
-//PENDIENTE
-const SILENCE_FRAME = Buffer.from([0xF8, 0xFF, 0xFE]);
-class Silence extends Readable {
-  _read() {
-    this.push(SILENCE_FRAME);
-    this.destroy();
-  }
-}
-
-
+// Función para inicializar la conexión de voz del bot
 async function conectar(usuarioCanalVoz) {
-    let conexionVozBot = {};
+    let conexionVoz = {};
     if(usuarioCanalVoz) {
-        conexionVozBot = await usuarioCanalVoz.join();
-        conexionVozBot.play(new Silence(), { type: 'opus' });
-        //console.log(JSON.toISOString(canalVoz.members)); // da error
-        //console.log(usuarioCanalVoz.members);
-        escuchar(conexionVozBot, usuarioCanalVoz);
+        conexionVoz = await usuarioCanalVoz.join();
+        // Existe un bug en discord que se corrige haciendo que el 
+        // bot siempre transmita sonido, en este caso, transmite un frame vacio
+        conexionVoz.play(new Silence(), { type: 'opus' });
+        // Comenzar la conexión de voz para cada usuario
+        escuchar(conexionVoz, usuarioCanalVoz);
     }
-    return conexionVozBot;
+    return conexionVoz;
 }
 
+// Función que desconecta el bot del canal
+async function desconectar(botCanalVoz) {
+    if (botCanalVoz) botCanalVoz.leave();
+}
 
+// Función que activa las conexiones de voz cuando cualquiera de los usuarios
+// comienze a hablar
 async function escuchar(conexionVoz, canalVoz) {
     conexionVoz.on('speaking', async (usuario, charla) => {
+        // Parámetros para conseguir las conexiones de voz de cada miembro
+        const miembros = canalVoz.members;
+        const miembro = miembros.get(usuario.id);
+        // Buffer que recibe los paquetes de voz de los usuarios
         let bufferVoz = [];
-        let miembros = canalVoz.members;
-        let miembro = miembros.get(usuario.id);
+        // En caso de que el bot reproduzca zonido, omitir el resto de la función
         if (charla.bitfield == 0 || usuario.bot) return;
-        const streamVoz = conexionVoz.receiver.createStream(usuario, { mode: 'pcm', end: 'silence' });
+        // Conectar los stream de datos a la conexión de voz
+        let streamVoz = conexionVoz.receiver.createStream(usuario, { mode: 'pcm', end: 'silence' });
+        // Evento disparado al recibir un paquete de datos
         streamVoz.on('data', (data) => {
+            // Guardar el paquete de datos en el buffer
             bufferVoz.push(data);
         });
+        // Evento disparado al finalizar de recibir paquetes
         streamVoz.on('end', async () => {
-            bufferVoz = Buffer.concat(bufferVoz);
-            const duracion = bufferVoz.length / 48000 / 4;
-            //console.log("duración: " + duracion);
             try {
-                let bufferAudio = await convertirAudio(bufferVoz);
-                bufferVoz = [];
-                let texto = await transcribir(bufferAudio);
-                bufferAudio = {};
-                console.log(texto);
-                if ( texto.includes('mundo') ) {
-                    //client.guilds.fetch("server id here").members.fetch("user id here").voice.setMute(true);
-                    //miembro.selfMute(true);
-                    miembro.voice.setMute(true);
-                    console.log('muteado');
-                }
-                if (texto != null) {} //console.log(texto);
+                // Función para comenzar la censura que recibe 3 parámetros:
+                // texto a censurar, miembro autor del texto y la conexión de voz
+                censurar(
+                    // Función que devuelve en forma de texto lo que el usuario dijo
+                    transcribir( convertirAudio( Buffer.concat(bufferVoz) ) ),
+                    // Autor de la conexión
+                    miembro,
+                    // Conexión de voz
+                    conexionVoz);
+                // Al finalizar, destruir el stream de datos para liberar recursos
+                streamVoz.destroy();
             } catch (e) {
                 console.log('Error al transcribir audio' + e);
             }
@@ -213,10 +167,12 @@ async function escuchar(conexionVoz, canalVoz) {
         streamVoz.on('error',  (e) => { 
             console.log('streamVoz: ' + e);
         });
+        
     });
 }
 
-async function convertirAudio(bufferVoz) {
+//Función que convierte los paquetes en el buffer en un formato de audio
+function convertirAudio(bufferVoz) {
     try {
         const data = new Int16Array(bufferVoz);
         const ndata = data.filter((el, idx) => idx % 2);
@@ -228,88 +184,26 @@ async function convertirAudio(bufferVoz) {
     }
 }
 
-async function transcribir(bufferAudio) {
-    const idioma = "es";
+// Función que transcribe el audio en texto
+function transcribir(bufferAudio) {
     vosk.setLogLevel(-1);
-    let recs = {
-      'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
-      'es': new vosk.Recognizer({model: new vosk.Model('vosk_models/es'), sampleRate: 48000}),
-   }
     recs[idioma].acceptWaveform(bufferAudio);
     let ret = recs[idioma].finalResult();
-    recs[idioma].reset;
-    return ret['text'];
+    let texto = ret['text'];
+    return texto;
 }
 
-async function connect(msg, voice_Channel) {
-    try {
-        if (!voice_Channel) return msg.reply("Error: The voice channel does not exist!");
-        let textChannel = await bot.channels.fetch(msg.channel.id);
-        if (!textChannel) return msg.reply("Error: The text channel does not exist!");
-        voice_Connection = await voice_Channel.join();
-        voice_Connection.play(new Silence(), { type: 'opus' });
-        speak_impl(voice_Connection, textChannel);
-        voice_Connection.on('disconnect', async(e) => {
-            if (e) console.log(e);
-            textChannel.send("Se ha desconectado el bot");
-        });
-        msg.reply('connected!');
-    } catch (e) {
-        console.log('connect: ' + e)
-        msg.reply('Error: unable to join your voice channel.');
-        throw e;
-    }
-}
-
-function speak_impl(voice_Connection, textChannel) {
-    voice_Connection.on('speaking', async (user, speaking) => {
-        if (speaking.bitfield == 0 || user.bot) {
+// Función que busca palabras precargadas como majaderias en el texto
+function censurar(texto, miembro, conexionVoz) {
+    console.log(texto);
+    let bandera = false;
+    let length = majaderias.length;
+    for (let i = 0; i < length; i++) {
+        if ( texto.includes(majaderias[i]) ) {
+            console.log(majaderias[i]);
+            conexionVoz.play( fs.createReadStream('./sonido/alerta.wav'), { volume: 0.2 } );
+            miembro.voice.setMute(true);
             return;
         }
-        console.log(`Escuchando a ${user.username}`);
-        // Se crea un stream de datos para transferencia a través de internet
-        const audioStream = voice_Connection.receiver.createStream(user, { mode: 'pcm' })
-        audioStream.on('error',  (e) => { 
-            console.log('audioStream: ' + e)
-        });
-        let buffer = [];
-        audioStream.on('data', (data) => {
-            buffer.push(data)
-        });
-        audioStream.on('end', async () => {
-            buffer = Buffer.concat(buffer);
-            const duration = buffer.length / 48000 / 4;
-            console.log("duración: " + duration);
-            try {
-                let new_buffer = await convert_audio(buffer)
-                let out = await transcribe(new_buffer, textChannel);
-                if (out != null)
-                    process_commands_query(out, textChannel, user);
-            } catch (e) {
-                console.log('tmpraw rename: ' + e)
-            }
-        });
-    });
-}
-
-function process_commands_query(txt, textChannel, user) {
-    if (txt && txt.length) {
-        textChannel.send(user.username + ': ' + txt);
     }
-}
-
-async function transcribe(buffer) {
-    vosk.setLogLevel(-1);
-    const idioma = "es";
-    let recs = {
-      'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
-      'es': new vosk.Recognizer({model: new vosk.Model('vosk_models/es'), sampleRate: 48000}),
-   }
-    recs[idioma].acceptWaveform(buffer);
-    //let ret = recs[idioma].finalResult().text;
-    let ret = recs[idioma].finalResult().text;
-    console.log('vosk:', ret);
-    console.log(`${ret}`);
-    if( ret.includes('saludo') ) {console.log('Hola a todos perras!!'); }
-    return JSON.parse(ret);
 }
