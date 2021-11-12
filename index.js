@@ -29,7 +29,7 @@ let recs = {
 }
 
 //bot.login(token);
-bot.login(process.env.TOKEN);
+bot.login(process.env.DISCORD_TOK);
 
 bot.on('ready', () => {
     cargarMajaderias();
