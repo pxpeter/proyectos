@@ -1,38 +1,138 @@
-function getCurrentDateString() {
-    return (new Date()).toISOString() + ' ::';
-};
-
-__originalLog = console.log;
-/*
-console.log = function () {
-    var args = [].slice.call(arguments);
-    __originalLog.apply(console.log, [getCurrentDateString()].concat(args));
-};*/
-
+require('dotenv').config();
 const fs = require('fs');
-const util = require('util');
-const path = require('path');
 const { Readable } = require('stream');
-const config = require('./config.json');
+//const config = require('./config.json');
 const Discord = require('discord.js');
 const vosk = require('vosk');
 
-function necessary_dirs() {
-    if (!fs.existsSync('./data/')){
-        fs.mkdirSync('./data/');
+const bot = new Discord.Client();
+//const token = config.token;
+
+const SILENCE_FRAME = Buffer.from([0xF8, 0xFF, 0xFE]);
+const idioma = "es";
+let majaderias = [];
+
+class Silence extends Readable {
+    _read() {
+      this.push(SILENCE_FRAME);
+      this.destroy();
     }
 }
-necessary_dirs()
 
-function sleep(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+function cargarMajaderias() {
+    majaderias = fs.readFileSync('majaderias.txt', 'utf8').toString().split('\r\n');
 }
 
-async function convert_audio(input) {
+let recs = {
+    'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
+    'es': new vosk.Recognizer({model: new vosk.Model('vosk_models/es'), sampleRate: 48000}),
+}
+
+//bot.login(token);
+bot.login(process.env.TOKEN);
+
+bot.on('ready', () => {
+    cargarMajaderias();
+    console.log(`Logged in as ${bot.user.tag}!`);
+});
+
+bot.on('message', async (mensaje) => {
     try {
-        const data = new Int16Array(input)
+        const mensajeContenido = mensaje.content;
+        const usuarioCanalVoz = mensaje.member.voice.channel;
+        const botCanalVoz = mensaje.guild.me.voice.channel;
+        let conexionVoz = {};
+
+        // Previene mensajes privados al bot
+        if (!('guild' in mensaje) || !mensaje.guild) return;
+        // Comando para activar el bot
+        if (mensajeContenido === '-join') {
+            if (usuarioCanalVoz) {
+                conexionVoz = await conectar(usuarioCanalVoz);
+                if (conexionVoz) mensaje.reply(`${bot.user.tag} se ha conectado a ${usuarioCanalVoz}`);
+            }
+            else mensaje.reply('Error: Por favor unase a un canal de voz primero.');
+        }
+        // Comando para desactivar el bot
+        else if (mensajeContenido === '-leave') {
+            if (!botCanalVoz) mensaje.reply('Error: Nada por hacer.');
+            if (botCanalVoz) {
+                desconectar(botCanalVoz);
+                mensaje.reply("Desconectado.");
+            }
+        }
+    } catch (e) {
+        console.error('Error en el bot: ' + e)
+        mensaje.reply('Algo no anda bien, intentalo nuevamente.');
+    }
+});
+
+// Función para inicializar la conexión de voz del bot
+async function conectar(usuarioCanalVoz) {
+    let conexionVoz = {};
+    if(usuarioCanalVoz) {
+        conexionVoz = await usuarioCanalVoz.join();
+        // Existe un bug en discord que se corrige haciendo que el 
+        // bot siempre transmita sonido, en este caso, transmite un frame vacio
+        conexionVoz.play(new Silence(), { type: 'opus' });
+        // Comenzar la conexión de voz para cada usuario
+        escuchar(conexionVoz, usuarioCanalVoz);
+    }
+    return conexionVoz;
+}
+
+// Función que desconecta el bot del canal
+async function desconectar(botCanalVoz) {
+    if (botCanalVoz) botCanalVoz.leave();
+}
+
+// Función que activa las conexiones de voz cuando cualquiera de los usuarios
+// comienze a hablar
+async function escuchar(conexionVoz, canalVoz) {
+    conexionVoz.on('speaking', async (usuario, charla) => {
+        // Parámetros para conseguir las conexiones de voz de cada miembro
+        const miembros = canalVoz.members;
+        const miembro = miembros.get(usuario.id);
+        // Buffer que recibe los paquetes de voz de los usuarios
+        let bufferVoz = [];
+        // En caso de que el bot reproduzca zonido, omitir el resto de la función
+        if (charla.bitfield == 0 || usuario.bot) return;
+        // Conectar los stream de datos a la conexión de voz
+        let streamVoz = conexionVoz.receiver.createStream(usuario, { mode: 'pcm', end: 'silence' });
+        // Evento disparado al recibir un paquete de datos
+        streamVoz.on('data', (data) => {
+            // Guardar el paquete de datos en el buffer
+            bufferVoz.push(data);
+        });
+        // Evento disparado al finalizar de recibir paquetes
+        streamVoz.on('end', async () => {
+            try {
+                // Función para comenzar la censura que recibe 3 parámetros:
+                // texto a censurar, miembro autor del texto y la conexión de voz
+                censurar(
+                    // Función que devuelve en forma de texto lo que el usuario dijo
+                    transcribir( convertirAudio( Buffer.concat(bufferVoz) ) ),
+                    // Autor de la conexión
+                    miembro,
+                    // Conexión de voz
+                    conexionVoz);
+                // Al finalizar, destruir el stream de datos para liberar recursos
+                streamVoz.destroy();
+            } catch (e) {
+                console.log('Error al transcribir audio' + e);
+            }
+        });
+        streamVoz.on('error',  (e) => { 
+            console.log('streamVoz: ' + e);
+        });
+        
+    });
+}
+
+//Función que convierte los paquetes en el buffer en un formato de audio
+function convertirAudio(bufferVoz) {
+    try {
+        const data = new Int16Array(bufferVoz);
         const ndata = data.filter((el, idx) => idx % 2);
         return Buffer.from(ndata);
     } catch (e) {
@@ -42,121 +142,26 @@ async function convert_audio(input) {
     }
 }
 
-const DISCORD_MSG_LIMIT = 2000;
-let token = config.token;
-
-const discordClient = new Discord.Client();
-
-discordClient.on('ready', () => {
-    console.log(`Logged in as ${discordClient.user.tag}!`)
-})
-discordClient.login(token);
-
-const guildMap = new Map();
-let voice_Connection;
-
-discordClient.on('message', async (msg) => {
-    try {
-        if (!('guild' in msg) || !msg.guild) return; // Previene mensajes privados al bot
-        if (msg.content == '/join') {
-            if (!msg.member.voice.channelID) {
-                msg.reply('Error: Por favor unase a un canal de voz primero.') // Mensaje de error por falta de conexion a un canal de voz
-            } else {
-                let voice_Channel = msg.member.voice.channel;
-                await connect(msg, voice_Channel);
-            }
-        } else if (msg.content == '/leave') {
-          if (voice_Channel){
-            let voice_Channel = msg.member.voice.channel;
-            voice_Channel.leave();
-          } 
-          if (voice_Connection) voice_Connection.disconnect();
-          msg.reply("Desconectado.") //Mensaje de salida del bot
-        }
-    } catch (e) {
-        console.log('discordClient message: ' + e)
-        msg.reply('Error#180: Something went wrong, try again or contact the developers if this keeps happening.');
-    }
-})
-
-const SILENCE_FRAME = Buffer.from([0xF8, 0xFF, 0xFE]);
-
-class Silence extends Readable {
-  _read() {
-    this.push(SILENCE_FRAME);
-    this.destroy();
-  }
-}
-
-async function connect(msg, voice_Channel) {
-    try {
-        if (!voice_Channel) return msg.reply("Error: The voice channel does not exist!");
-        let textChannel = await discordClient.channels.fetch(msg.channel.id);
-        if (!textChannel) return msg.reply("Error: The text channel does not exist!");
-        let voice_Connection = await voice_Channel.join();
-        voice_Connection.play(new Silence(), { type: 'opus' });
-        speak_impl(voice_Connection, textChannel);
-        voice_Connection.on('disconnect', async(e) => {
-            if (e) console.log(e);
-            textChannel.send("Se ha desconectado el bot");
-        });
-        msg.reply('connected!');
-    } catch (e) {
-        console.log('connect: ' + e)
-        msg.reply('Error: unable to join your voice channel.');
-        throw e;
-    }
-}
-
-function speak_impl(voice_Connection, textChannel) {
-    voice_Connection.on('speaking', async (user, speaking) => {
-        if (speaking.bitfield == 0 || user.bot) {
-            return
-        }
-        console.log(`Escuchando a ${user.username}`);
-        // Se crea un stream de datos para transferencia a través de internet
-        const audioStream = voice_Connection.receiver.createStream(user, { mode: 'pcm' })
-        audioStream.on('error',  (e) => { 
-            console.log('audioStream: ' + e)
-        });
-        let buffer = [];
-        audioStream.on('data', (data) => {
-            buffer.push(data)
-        });
-        audioStream.on('end', async () => {
-            buffer = Buffer.concat(buffer);
-            const duration = buffer.length / 48000 / 4;
-            console.log("duración: " + duration);
-            try {
-                let new_buffer = await convert_audio(buffer)
-                let out = await transcribe(new_buffer, textChannel);
-                if (out != null)
-                    process_commands_query(out, textChannel, user);
-            } catch (e) {
-                console.log('tmpraw rename: ' + e)
-            }
-        });
-    });
-}
-
-function process_commands_query(txt, textChannel, user) {
-    if (txt && txt.length) {
-        textChannel.send(user.username + ': ' + txt);
-    }
-}
-
-async function transcribe(buffer) {
+// Función que transcribe el audio en texto
+function transcribir(bufferAudio) {
     vosk.setLogLevel(-1);
-    const idioma = "es";
-    let recs = {
-      'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
-      'es': new vosk.Recognizer({model: new vosk.Model('vosk_models/es'), sampleRate: 48000}),
-   }
-    recs[idioma].acceptWaveform(buffer);
-    //let ret = recs[idioma].finalResult().text;
-    let ret = recs[idioma].finalResult().text;
-    console.log('vosk:', ret);
-    console.log(`${ret}`);
-    if( ret.includes('saludo') ) {console.log('Hola a todos perras!!'); }
-    return ret;
+    recs[idioma].acceptWaveform(bufferAudio);
+    let ret = recs[idioma].finalResult();
+    let texto = ret['text'];
+    return texto;
+}
+
+// Función que busca palabras precargadas como majaderias en el texto
+function censurar(texto, miembro, conexionVoz) {
+    console.log(texto);
+    let bandera = false;
+    let length = majaderias.length;
+    for (let i = 0; i < length; i++) {
+        if ( texto.includes(majaderias[i]) ) {
+            console.log(majaderias[i]);
+            conexionVoz.play( fs.createReadStream('./sonido/alerta.wav'), { volume: 0.2 } );
+            miembro.voice.setMute(true);
+            return;
+        }
+    }
 }
