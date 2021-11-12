@@ -1,4 +1,7 @@
-//Proyecto Modular Sensurador de Palabras Discord
+//Proyecto Modular: Filtrador de Lenguaje en Discord (FOLIO: 103/2021)
+
+//Profesor: Quintanilla Moreno Francisco Javier         2104466
+
 //Integrantes:  García Pérez Pedro                      214290982
 //              Martínez Navarro Marcos Omar            207541732
 //              Villarreal Padilla Edgar Alejandro      207579454
