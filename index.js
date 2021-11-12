@@ -54,7 +54,7 @@ bot.on('message', async (mensaje) => {
         // Previene mensajes privados al bot
         if (!('guild' in mensaje) || !mensaje.guild) return;
         // Comando para activar el bot
-        if (mensajeContenido === '-join') {
+        if (mensajeContenido === '-iniciar') {
             if (usuarioCanalVoz) {
                 conexionVoz = await conectar(usuarioCanalVoz);
                 if (conexionVoz) mensaje.reply(`${bot.user.tag} se ha conectado a ${usuarioCanalVoz}`);
@@ -62,7 +62,7 @@ bot.on('message', async (mensaje) => {
             else mensaje.reply('Error: Por favor unase a un canal de voz primero.');
         }
         // Comando para desactivar el bot
-        else if (mensajeContenido === '-leave') {
+        else if (mensajeContenido === '-terminar') {
             if (!botCanalVoz) mensaje.reply('Error: Nada por hacer.');
             if (botCanalVoz) {
                 desconectar(botCanalVoz);
