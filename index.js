@@ -1,8 +1,8 @@
 //Proyecto Modular Sensurador de Palabras Discord
-//Integrantes:  García Pérez Pedro
-//              Martínez Navarro Marcos Omar
-//              Villareal Padilla Edgar Alejandro
-
+//Integrantes:  García Pérez Pedro                      214290982
+//              Martínez Navarro Marcos Omar            207541732
+//              Villarreal Padilla Edgar Alejandro      207579454
+    
 
 //////////////////////LOGIN//////////////////////
 
