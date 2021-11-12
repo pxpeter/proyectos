@@ -11,6 +11,7 @@
 const fs = require('fs');
 const { Readable } = require('stream');
 //const config = require('./config.json');
+const path = require('path');
 const Discord = require('discord.js');
 const vosk = require('vosk');
 
