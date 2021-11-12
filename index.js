@@ -30,10 +30,6 @@ class Silence extends Readable {
     }
 }
 
-function cargarMajaderias() {
-    majaderias = fs.readFileSync('majaderias.txt', 'utf8').toString().split('\r\n');
-}
-
 let recs = {
     'en': new vosk.Recognizer({model: new vosk.Model('vosk_models/en'), sampleRate: 48000}),
     'es': new vosk.Recognizer({model: new vosk.Model('vosk_models/es'), sampleRate: 48000}),
