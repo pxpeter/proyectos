@@ -1,3 +1,11 @@
+//Proyecto Modular Sensurador de Palabras Discord
+//Integrantes:  García Pérez Pedro
+//              Martínez Navarro Marcos Omar
+//              Villareal Padilla Edgar Alejandro
+
+
+//////////////////////LOGIN//////////////////////
+
 require('dotenv').config();
 const fs = require('fs');
 const { Readable } = require('stream');
