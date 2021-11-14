@@ -171,6 +171,7 @@ function censurar(texto, miembro, conexionVoz) {
         if ( texto.includes(majaderias[i]) ) {
             console.log(majaderias[i]);
             conexionVoz.play( fs.createReadStream('./sonido/alerta.wav'), { volume: 0.2 } );
+            mensaje.reply(`${bot.user.tag} a muteado a  ${miembro}`);
             miembro.voice.setMute(true);
             return;
         }
