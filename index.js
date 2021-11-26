@@ -14,6 +14,7 @@ const fs = require('fs');
 const { Readable } = require('stream');
 //const config = require('./config.json');
 const Discord = require('discord.js');
+const sqlite3 = require('sqlite3');
 const vosk = require('vosk');
 
 const bot = new Discord.Client();
@@ -22,6 +23,9 @@ const bot = new Discord.Client();
 const SILENCE_FRAME = Buffer.from([0xF8, 0xFF, 0xFE]);
 const idioma = "es";
 let majaderias = [];
+let baseDatos = new sqlite3.Database('./db/majaderias.db');
+let data = [];
+let dbMajaderias = [];
 
 class Silence extends Readable {
     _read() {
@@ -30,8 +34,26 @@ class Silence extends Readable {
     }
 }
 
-function cargarMajaderias() {
-    majaderias = fs.readFileSync('majaderias.txt', 'utf8').toString().split('\r\n');
+function leerBaseDatos() {
+    return new Promise( resolve => {
+        baseDatos.all('SELECT * FROM majaderias', [], ( err, filas ) => {
+            if ( err ) {
+                return console.error( err.message );
+            }
+            filas.forEach( fila => {
+                data.push(fila);
+            });
+            resolve(data);
+        });
+    });
+}
+
+async function cargarMajaderias() {
+    dbMajaderias = await leerBaseDatos();
+    dbMajaderias.forEach( e => {
+        console.log(e.nombre);
+        majaderias.push(e.nombre);
+    });
 }
 
 let recs = {
